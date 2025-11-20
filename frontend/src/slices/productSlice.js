@@ -1,9 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import api from '../utils/api';
 
 export const fetchProducts = createAsyncThunk('products/fetchProducts', async (params, { rejectWithValue }) => {
   try {
-    const res = await axios.get('/api/products', { params });
+    const res = await api.get('/api/products', { params });
     return res.data;
   } catch (err) {
     return rejectWithValue(err.response.data.message);
@@ -12,7 +12,7 @@ export const fetchProducts = createAsyncThunk('products/fetchProducts', async (p
 
 export const fetchProduct = createAsyncThunk('products/fetchProduct', async (id, { rejectWithValue }) => {
   try {
-    const res = await axios.get(`/api/products/${id}`);
+    const res = await api.get(`/api/products/${id}`);
     return res.data;
   } catch (err) {
     return rejectWithValue(err.response.data.message);
@@ -21,7 +21,7 @@ export const fetchProduct = createAsyncThunk('products/fetchProduct', async (id,
 
 export const fetchCategories = createAsyncThunk('products/fetchCategories', async (_, { rejectWithValue }) => {
   try {
-    const res = await axios.get('/api/products/categories');
+    const res = await api.get('/api/products/categories');
     return res.data;
   } catch (err) {
     return rejectWithValue(err.response.data.message);

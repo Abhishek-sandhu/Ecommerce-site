@@ -14,6 +14,12 @@ const AdminDashboard = () => {
     totalOrders: 0,
     totalProducts: 0,
     totalRevenue: 0,
+    recentOrders: [],
+    orderStatusStats: [],
+    monthlyRevenue: [],
+    lowStockProducts: [],
+    todaysOrders: 0,
+    todaysRevenue: 0,
   });
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -108,6 +114,7 @@ const AdminDashboard = () => {
         images: [''],
       });
       dispatch(fetchProducts()); // Refresh products
+      fetchStats(); // Refresh stats
     } catch (error) {
       toast.error(isEditing ? 'Failed to update product' : 'Failed to add product');
     }
@@ -143,30 +150,154 @@ const AdminDashboard = () => {
     setNewCategoryName('');
   };
 
+  const handleDeleteProduct = async (productId) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`/api/admin/products/${productId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('Product deleted successfully');
+      dispatch(fetchProducts()); // Refresh products
+      fetchStats(); // Refresh stats
+    } catch (error) {
+      toast.error('Failed to delete product');
+    }
+  };
+
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1 style={{ marginBottom: '2rem' }}>Admin Dashboard</h1>
+    <div style={{ padding: '2rem', backgroundColor: '#f8f9fa', minHeight: '100vh' }}>
+      <h1 style={{ marginBottom: '2rem', color: '#333', fontSize: '2.5rem', fontWeight: 'bold' }}>Admin Dashboard</h1>
+
+      {/* Key Metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-          <h3>Total Users</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#228B22' }}>{stats.totalUsers}</p>
+        <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', color: 'white' }}>
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', opacity: 0.9 }}>Total Users</h3>
+          <p style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '0' }}>{stats.totalUsers}</p>
         </div>
-        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-          <h3>Total Orders</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#228B22' }}>{stats.totalOrders}</p>
+        <div style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', color: 'white' }}>
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', opacity: 0.9 }}>Total Orders</h3>
+          <p style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '0' }}>{stats.totalOrders}</p>
         </div>
-        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-          <h3>Total Products</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#228B22' }}>{stats.totalProducts}</p>
+        <div style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', color: 'white' }}>
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', opacity: 0.9 }}>Total Products</h3>
+          <p style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '0' }}>{stats.totalProducts}</p>
         </div>
-        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-          <h3>Total Revenue</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#228B22' }}>${stats.totalRevenue.toFixed(2)}</p>
+        <div style={{ background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', color: 'white' }}>
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', opacity: 0.9 }}>Total Revenue</h3>
+          <p style={{ fontSize: '2.5rem', fontWeight: 'bold', margin: '0' }}>${stats.totalRevenue.toFixed(2)}</p>
         </div>
       </div>
 
+      {/* Today's Metrics */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', borderLeft: '4px solid #ff6b6b' }}>
+          <h3 style={{ margin: '0 0 0.5rem 0', color: '#666', fontSize: '0.9rem' }}>Today's Orders</h3>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0', color: '#ff6b6b' }}>{stats.todaysOrders}</p>
+        </div>
+        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', borderLeft: '4px solid #4ecdc4' }}>
+          <h3 style={{ margin: '0 0 0.5rem 0', color: '#666', fontSize: '0.9rem' }}>Today's Revenue</h3>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0', color: '#4ecdc4' }}>${stats.todaysRevenue.toFixed(2)}</p>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
+
+        {/* Recent Orders */}
+        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ marginBottom: '1.5rem', color: '#333', borderBottom: '2px solid #f0f0f0', paddingBottom: '0.5rem' }}>Recent Orders</h2>
+          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            {stats.recentOrders.length > 0 ? (
+              stats.recentOrders.map((order) => (
+                <div key={order._id} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '1rem',
+                  borderBottom: '1px solid #f0f0f0',
+                  borderRadius: '8px',
+                  marginBottom: '0.5rem',
+                  background: '#fafafa'
+                }}>
+                  <div>
+                    <p style={{ margin: '0', fontWeight: 'bold', color: '#333' }}>
+                      Order #{order._id.slice(-8)}
+                    </p>
+                    <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
+                      {order.user?.name || 'Unknown User'} • {new Date(order.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ margin: '0', fontWeight: 'bold', color: '#228B22' }}>
+                      ${order.totalPrice.toFixed(2)}
+                    </p>
+                    <span style={{
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '12px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      backgroundColor:
+                        order.status === 'delivered' ? '#d4edda' :
+                        order.status === 'shipped' ? '#cce5ff' :
+                        order.status === 'confirmed' ? '#fff3cd' :
+                        order.status === 'pending' ? '#f8d7da' : '#e2e3e5',
+                      color:
+                        order.status === 'delivered' ? '#155724' :
+                        order.status === 'shipped' ? '#004085' :
+                        order.status === 'confirmed' ? '#856404' :
+                        order.status === 'pending' ? '#721c24' : '#383d41'
+                    }}>
+                      {order.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No orders yet</p>
+            )}
+          </div>
+        </div>
+
+        {/* Order Status & Low Stock */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+
+          {/* Order Status Breakdown */}
+          <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ marginBottom: '1rem', color: '#333' }}>Order Status</h3>
+            {stats.orderStatusStats.map((status) => (
+              <div key={status._id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ textTransform: 'capitalize' }}>{status._id}</span>
+                <span style={{ fontWeight: 'bold' }}>{status.count}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Low Stock Alert */}
+          <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ marginBottom: '1rem', color: '#333' }}>⚠️ Low Stock Alert</h3>
+            {stats.lowStockProducts.length > 0 ? (
+              stats.lowStockProducts.map((product) => (
+                <div key={product._id} style={{ marginBottom: '0.5rem', padding: '0.5rem', background: '#fff5f5', borderRadius: '4px' }}>
+                  <p style={{ margin: '0', fontWeight: 'bold', color: '#d63031' }}>{product.name}</p>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: '#666' }}>
+                    Only {product.stock} left • ${product.price}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p style={{ color: '#666', fontSize: '0.9rem' }}>All products are well stocked! 🎉</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Product Management Section */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
-        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
           <h2 style={{ marginBottom: '1rem' }}>{isEditing ? 'Edit Product' : 'Add New Product'}</h2>
           <form onSubmit={handleProductSubmit}>
             <div className="form-group">
@@ -251,7 +382,7 @@ const AdminDashboard = () => {
           </form>
         </div>
 
-        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
           <h2 style={{ marginBottom: '1rem' }}>Manage Products</h2>
           <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
             {products.map((product) => (

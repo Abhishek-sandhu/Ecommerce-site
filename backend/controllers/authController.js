@@ -70,7 +70,17 @@ exports.getProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(req.user.id, req.body, { new: true }).select('-password');
+    const allowedFields = ['name', 'email', 'addresses'];
+    const updates = {};
+
+    // Only allow updating specified fields
+    Object.keys(req.body).forEach(key => {
+      if (allowedFields.includes(key)) {
+        updates[key] = req.body[key];
+      }
+    });
+
+    const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select('-password');
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });

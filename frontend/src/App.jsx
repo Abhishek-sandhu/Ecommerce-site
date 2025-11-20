@@ -7,6 +7,7 @@ import AppInitializer from './components/AppInitializer';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
+import EcommerceHome from './pages/EcommerceHome';
 import ProductList from './pages/ProductList';
 import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
@@ -29,6 +30,7 @@ function App() {
             <main className="flex-grow">
               <Routes>
                 <Route path="/" element={<Home />} />
+                <Route path="/shop" element={<EcommerceHome />} />
                 <Route path="/products" element={<ProductList />} />
                 <Route path="/product/:id" element={<ProductDetail />} />
                 <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />

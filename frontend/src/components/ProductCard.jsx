@@ -76,12 +76,7 @@ const ProductCard = ({ product }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button className="add-to-cart-btn" onClick={handleAddToCart}>Add to Cart</button>
           <button
-            style={{
-              color: isInWishlist ? '#e53e3e' : '#666',
-              border: 'none',
-              background: 'none',
-              cursor: 'pointer'
-            }}
+            className="wishlist-btn"
             onClick={handleWishlistToggle}
           >
             <Heart size={20} fill={isInWishlist ? 'currentColor' : 'none'} />

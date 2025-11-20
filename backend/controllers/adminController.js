@@ -6,19 +6,88 @@ const Coupon = require('../models/Coupon');
 
 exports.getDashboardStats = async (req, res) => {
   try {
+    // Basic counts
     const totalUsers = await User.countDocuments({ role: 'user' });
     const totalOrders = await Order.countDocuments();
     const totalProducts = await Product.countDocuments();
-    const totalRevenue = await Order.aggregate([
+
+    // Revenue calculation
+    const totalRevenueResult = await Order.aggregate([
       { $match: { isPaid: true } },
       { $group: { _id: null, total: { $sum: '$totalPrice' } } }
     ]);
+    const totalRevenue = totalRevenueResult[0]?.total || 0;
+
+    // Recent orders (last 10)
+    const recentOrders = await Order.find()
+      .populate('user', 'name email')
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('user totalPrice status createdAt isPaid');
+
+    // Order status breakdown
+    const orderStatusStats = await Order.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+
+    // Monthly revenue for the last 6 months
+    const monthlyRevenue = await Order.aggregate([
+      {
+        $match: {
+          isPaid: true,
+          createdAt: { $gte: new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000) }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          revenue: { $sum: '$totalPrice' },
+          orders: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    // Low stock products (less than 10 items)
+    const lowStockProducts = await Product.find({ stock: { $lt: 10 } })
+      .select('name stock price')
+      .limit(5);
+
+    // Today's orders
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todaysOrders = await Order.countDocuments({
+      createdAt: { $gte: today, $lt: tomorrow }
+    });
+
+    const todaysRevenueResult = await Order.aggregate([
+      {
+        $match: {
+          isPaid: true,
+          createdAt: { $gte: today, $lt: tomorrow }
+        }
+      },
+      { $group: { _id: null, total: { $sum: '$totalPrice' } } }
+    ]);
+    const todaysRevenue = todaysRevenueResult[0]?.total || 0;
 
     res.json({
       totalUsers,
       totalOrders,
       totalProducts,
-      totalRevenue: totalRevenue[0]?.total || 0,
+      totalRevenue,
+      recentOrders,
+      orderStatusStats,
+      monthlyRevenue,
+      lowStockProducts,
+      todaysOrders,
+      todaysRevenue,
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });

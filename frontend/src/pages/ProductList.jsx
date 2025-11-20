@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 import { fetchProducts, fetchCategories } from '../slices/productSlice';
 import ProductCard from '../components/ProductCard';
 
 const ProductList = () => {
   const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
   const { products, categories, loading, totalPages, currentPage } = useSelector((state) => state.products);
   const [filters, setFilters] = useState({
     search: '',
@@ -13,23 +15,55 @@ const ProductList = () => {
     minPrice: '',
     maxPrice: '',
   });
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
 
   useEffect(() => {
     dispatch(fetchCategories());
-    dispatch(fetchProducts(filters));
-  }, [dispatch, filters]);
+
+    // Initialize filters from URL parameters
+    const category = searchParams.get('category') || '';
+    const exclude = searchParams.get('exclude') || '';
+    const search = searchParams.get('search') || '';
+
+    const initialFilters = {
+      search,
+      category,
+      sort: '',
+      minPrice: '',
+      maxPrice: '',
+      exclude: exclude,
+    };
+
+    setFilters(initialFilters);
+    dispatch(fetchProducts(initialFilters));
+  }, [dispatch, searchParams]);
 
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
+  };
+
+  const handlePriceRangeChange = (min, max) => {
+    setPriceRange({ min, max });
+    setFilters({ ...filters, minPrice: min.toString(), maxPrice: max.toString() });
   };
 
   const handlePageChange = (page) => {
     dispatch(fetchProducts({ ...filters, page }));
   };
 
+  const isRelatedProductsView = searchParams.get('exclude') && searchParams.get('category');
+  const categoryName = categories.find(cat => cat._id === filters.category)?.name;
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Products</h1>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">
+          {isRelatedProductsView ? `Related Products${categoryName ? ` - ${categoryName}` : ''}` : 'Products'}
+        </h1>
+        {isRelatedProductsView && (
+          <p className="text-gray-600 mt-2">Products similar to the one you viewed</p>
+        )}
+      </div>
       <div className="flex flex-col md:flex-row gap-8">
         <div className="md:w-1/4">
           <div className="bg-white p-4 rounded-lg shadow">
@@ -65,23 +99,64 @@ const ProductList = () => {
                 <option value="price_desc">Price: High to Low</option>
                 <option value="rating">Rating</option>
               </select>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  name="minPrice"
-                  placeholder="Min Price"
-                  value={filters.minPrice}
-                  onChange={handleFilterChange}
-                  className="w-1/2 p-2 border rounded"
-                />
-                <input
-                  type="number"
-                  name="maxPrice"
-                  placeholder="Max Price"
-                  value={filters.maxPrice}
-                  onChange={handleFilterChange}
-                  className="w-1/2 p-2 border rounded"
-                />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Price Range</label>
+                <div className="px-2">
+                  <div className="relative">
+                    {/* Price Range Slider */}
+                    <div className="relative h-2 bg-gray-200 rounded-lg">
+                      <div
+                        className="absolute h-2 bg-blue-600 rounded-lg"
+                        style={{
+                          left: `${(priceRange.min / 1000) * 100}%`,
+                          right: `${100 - (priceRange.max / 1000) * 100}%`,
+                        }}
+                      />
+                      {/* Min Handle */}
+                      <div
+                        className="absolute w-4 h-4 bg-blue-600 rounded-full -mt-1 cursor-pointer border-2 border-white shadow-md"
+                        style={{ left: `${(priceRange.min / 1000) * 100}%` }}
+                        onMouseDown={(e) => {
+                          const handleMouseMove = (e) => {
+                            const rect = e.target.parentElement.getBoundingClientRect();
+                            const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                            const newMin = Math.round((percent / 100) * 1000);
+                            if (newMin < priceRange.max) {
+                              handlePriceRangeChange(newMin, priceRange.max);
+                            }
+                          };
+                          document.addEventListener('mousemove', handleMouseMove);
+                          document.addEventListener('mouseup', () => {
+                            document.removeEventListener('mousemove', handleMouseMove);
+                          });
+                        }}
+                      />
+                      {/* Max Handle */}
+                      <div
+                        className="absolute w-4 h-4 bg-blue-600 rounded-full -mt-1 cursor-pointer border-2 border-white shadow-md"
+                        style={{ left: `${(priceRange.max / 1000) * 100}%` }}
+                        onMouseDown={(e) => {
+                          const handleMouseMove = (e) => {
+                            const rect = e.target.parentElement.getBoundingClientRect();
+                            const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                            const newMax = Math.round((percent / 100) * 1000);
+                            if (newMax > priceRange.min) {
+                              handlePriceRangeChange(priceRange.min, newMax);
+                            }
+                          };
+                          document.addEventListener('mousemove', handleMouseMove);
+                          document.addEventListener('mouseup', () => {
+                            document.removeEventListener('mousemove', handleMouseMove);
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-600 mt-2">
+                    <span>${priceRange.min}</span>
+                    <span>${priceRange.max}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

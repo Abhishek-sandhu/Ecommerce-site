@@ -30,7 +30,7 @@ const orderSchema = new mongoose.Schema({
   paidAt: { type: Date },
   isDelivered: { type: Boolean, required: true, default: false },
   deliveredAt: { type: Date },
-  status: { type: String, enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'], default: 'pending' },
+  status: { type: String, enum: ['pending', 'confirmed', 'shipped', 'out-for-delivery', 'delivered', 'cancelled'], default: 'pending' },
   coupon: { type: mongoose.Schema.Types.ObjectId, ref: 'Coupon' },
 }, { timestamps: true });
 

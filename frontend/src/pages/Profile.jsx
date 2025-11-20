@@ -6,6 +6,7 @@ import { fetchCart } from '../slices/cartSlice';
 import { fetchWishlist, removeFromWishlist } from '../slices/wishlistSlice';
 import toast from 'react-hot-toast';
 import { User, ShoppingBag, Heart, Settings, CreditCard, MapPin, Star, Package, Trash2 } from 'lucide-react';
+import api from '../utils/api';
 
 const Profile = () => {
   const { user } = useSelector((state) => state.auth);
@@ -14,10 +15,35 @@ const Profile = () => {
   const { wishlist } = useSelector((state) => state.wishlist);
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('overview');
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    address: {
+      street: user?.address?.street || '',
+      city: user?.address?.city || '',
+      state: user?.address?.state || '',
+      zip: user?.address?.zip || '',
+      country: user?.address?.country || '',
+    },
+  });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
+  });
+  const [addresses, setAddresses] = useState(user?.addresses || []);
+  const [showAddAddressForm, setShowAddAddressForm] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(null);
+  const [addressForm, setAddressForm] = useState({
+    type: 'home',
+    name: '',
+    phone: '',
+    street: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: '',
+    isDefault: false,
   });
 
   useEffect(() => {
@@ -39,6 +65,128 @@ const Profile = () => {
       });
     } else {
       setFormData({ ...formData, [name]: value });
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await dispatch(updateProfile(formData));
+      toast.success('Profile updated successfully');
+    } catch (error) {
+      toast.error('Failed to update profile');
+    }
+  };
+
+  const handleRemoveFromWishlist = async (productId) => {
+    try {
+      await dispatch(removeFromWishlist(productId));
+      toast.success('Removed from wishlist');
+    } catch (error) {
+      toast.error('Failed to remove from wishlist');
+    }
+  };
+
+  const handleAddressChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setAddressForm({
+      ...addressForm,
+      [name]: type === 'checkbox' ? checked : value,
+    });
+  };
+
+  const handleAddAddress = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await api.put('/api/auth/profile', {
+        addresses: [...addresses, { ...addressForm, _id: Date.now().toString() }],
+      });
+
+      const updatedUser = response.data;
+      setAddresses(updatedUser.addresses || []);
+      setAddressForm({
+        type: 'home',
+        name: '',
+        phone: '',
+        street: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: '',
+        isDefault: false,
+      });
+      setShowAddAddressForm(false);
+      toast.success('Address added successfully');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to add address');
+    }
+  };
+
+  const handleEditAddress = (address) => {
+    setEditingAddress(address);
+    setAddressForm(address);
+    setShowAddAddressForm(true);
+  };
+
+  const handleUpdateAddress = async (e) => {
+    e.preventDefault();
+    try {
+      const updatedAddresses = addresses.map(addr =>
+        addr._id === editingAddress._id ? { ...addressForm, _id: addr._id } : addr
+      );
+
+      const response = await api.put('/api/auth/profile', { addresses: updatedAddresses });
+
+      const updatedUser = response.data;
+      setAddresses(updatedUser.addresses || []);
+      setAddressForm({
+        type: 'home',
+        name: '',
+        phone: '',
+        street: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: '',
+        isDefault: false,
+      });
+      setEditingAddress(null);
+      setShowAddAddressForm(false);
+      toast.success('Address updated successfully');
+    } catch (error) {
+      toast.error('Failed to update address');
+    }
+  };
+
+  const handleDeleteAddress = async (addressId) => {
+    if (!window.confirm('Are you sure you want to delete this address?')) return;
+
+    try {
+      const updatedAddresses = addresses.filter(addr => addr._id !== addressId);
+      const response = await api.put('/api/auth/profile', { addresses: updatedAddresses });
+
+      const updatedUser = response.data;
+      setAddresses(updatedUser.addresses || []);
+      toast.success('Address deleted successfully');
+    } catch (error) {
+      toast.error('Failed to delete address');
+    }
+  };
+
+  const handleSetDefaultAddress = async (addressId) => {
+    try {
+      const updatedAddresses = addresses.map(addr => ({
+        ...addr,
+        isDefault: addr._id === addressId,
+      }));
+
+      const response = await api.put('/api/auth/profile', { addresses: updatedAddresses });
+
+      const updatedUser = response.data;
+      setAddresses(updatedUser.addresses || []);
+      toast.success('Default address updated');
+    } catch (error) {
+      toast.error('Failed to update default address');
     }
   };
 
@@ -385,24 +533,215 @@ const Profile = () => {
               </div>
             </div>
           )}
+          {activeTab === 'addresses' && (
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-xl font-semibold mb-4">Address Book</h3>
-              <div className="space-y-4">
-                <div className="border rounded-lg p-4">
-                  <h4 className="font-semibold mb-2">Default Address</h4>
-                  {user?.address?.street ? (
-                    <div className="text-gray-700">
-                      <p>{user.address.street}</p>
-                      <p>{user.address.city}, {user.address.state} {user.address.zip}</p>
-                      <p>{user.address.country}</p>
-                    </div>
-                  ) : (
-                    <p className="text-gray-600">No address saved</p>
-                  )}
-                </div>
-                <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold">Address Book</h3>
+                <button
+                  onClick={() => {
+                    setShowAddAddressForm(true);
+                    setEditingAddress(null);
+                    setAddressForm({
+                      type: 'home',
+                      name: '',
+                      phone: '',
+                      street: '',
+                      city: '',
+                      state: '',
+                      zip: '',
+                      country: '',
+                      isDefault: false,
+                    });
+                  }}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
                   Add New Address
                 </button>
+              </div>
+
+              {showAddAddressForm && (
+                <div className="border rounded-lg p-6 mb-6 bg-gray-50">
+                  <h4 className="font-semibold mb-4">
+                    {editingAddress ? 'Edit Address' : 'Add New Address'}
+                  </h4>
+                  <form onSubmit={editingAddress ? handleUpdateAddress : handleAddAddress} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-gray-700 mb-2">Address Type</label>
+                        <select
+                          name="type"
+                          value={addressForm.type}
+                          onChange={handleAddressChange}
+                          className="w-full p-3 border rounded"
+                          required
+                        >
+                          <option value="home">Home</option>
+                          <option value="work">Work</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 mb-2">Full Name</label>
+                        <input
+                          type="text"
+                          name="name"
+                          value={addressForm.name}
+                          onChange={handleAddressChange}
+                          className="w-full p-3 border rounded"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 mb-2">Phone Number</label>
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={addressForm.phone}
+                          onChange={handleAddressChange}
+                          className="w-full p-3 border rounded"
+                          required
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-gray-700 mb-2">Street Address</label>
+                        <input
+                          type="text"
+                          name="street"
+                          value={addressForm.street}
+                          onChange={handleAddressChange}
+                          className="w-full p-3 border rounded"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 mb-2">City</label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={addressForm.city}
+                          onChange={handleAddressChange}
+                          className="w-full p-3 border rounded"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 mb-2">State</label>
+                        <input
+                          type="text"
+                          name="state"
+                          value={addressForm.state}
+                          onChange={handleAddressChange}
+                          className="w-full p-3 border rounded"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 mb-2">ZIP Code</label>
+                        <input
+                          type="text"
+                          name="zip"
+                          value={addressForm.zip}
+                          onChange={handleAddressChange}
+                          className="w-full p-3 border rounded"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 mb-2">Country</label>
+                        <input
+                          type="text"
+                          name="country"
+                          value={addressForm.country}
+                          onChange={handleAddressChange}
+                          className="w-full p-3 border rounded"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        name="isDefault"
+                        checked={addressForm.isDefault}
+                        onChange={handleAddressChange}
+                        className="mr-2"
+                      />
+                      <label className="text-gray-700">Set as default address</label>
+                    </div>
+                    <div className="flex space-x-4">
+                      <button
+                        type="submit"
+                        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                      >
+                        {editingAddress ? 'Update Address' : 'Add Address'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddAddressForm(false);
+                          setEditingAddress(null);
+                        }}
+                        className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {addresses.length === 0 ? (
+                  <div className="text-center py-8">
+                    <MapPin size={48} className="text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-600">No addresses saved</p>
+                    <p className="text-sm text-gray-500">Add your first address to get started</p>
+                  </div>
+                ) : (
+                  addresses.map((address) => (
+                    <div key={address._id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center">
+                          <h4 className="font-semibold capitalize">{address.type} Address</h4>
+                          {address.isDefault && (
+                            <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleEditAddress(address)}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAddress(address._id)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Delete
+                          </button>
+                          {!address.isDefault && (
+                            <button
+                              onClick={() => handleSetDefaultAddress(address._id)}
+                              className="text-green-600 hover:text-green-800 text-sm"
+                            >
+                              Set Default
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-gray-700">
+                        <p className="font-medium">{address.name}</p>
+                        <p>{address.phone}</p>
+                        <p>{address.street}</p>
+                        <p>{address.city}, {address.state} {address.zip}</p>
+                        <p>{address.country}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}

@@ -3,7 +3,7 @@ const Category = require('../models/Category');
 
 exports.getProducts = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, category, sort, minPrice, maxPrice } = req.query;
+    const { page = 1, limit = 10, search, category, sort, minPrice, maxPrice, exclude } = req.query;
 
     let query = {};
 
@@ -19,6 +19,10 @@ exports.getProducts = async (req, res) => {
       query.price = {};
       if (minPrice) query.price.$gte = minPrice;
       if (maxPrice) query.price.$lte = maxPrice;
+    }
+
+    if (exclude) {
+      query._id = { $ne: exclude };
     }
 
     let sortOption = {};

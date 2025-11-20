@@ -34,7 +34,7 @@ const Cart = () => {
       {cart.items?.length === 0 ? (
         <div className="text-center">
           <p className="text-gray-600 mb-4">Your cart is empty</p>
-          <Link to="/products" className="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700">
+          <Link to="/products" className="btn">
             Continue Shopping
           </Link>
         </div>
@@ -42,51 +42,51 @@ const Cart = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             {cart.items.map((item) => (
-              <div key={item._id} className="flex items-center border-b py-4">
+              <div key={item._id} className="cart-item">
                 <img
                   src={item.product.images[0] || '/placeholder.jpg'}
                   alt={item.product.name}
-                  className="w-20 h-20 object-cover rounded mr-4"
                 />
-                <div className="flex-grow">
-                  <h3 className="font-semibold">{item.product.name}</h3>
-                  <p className="text-gray-600">${item.product.price}</p>
+                <div className="details">
+                  <h3>{item.product.name}</h3>
+                  <p>${item.product.price}</p>
                 </div>
-                <div className="flex items-center">
+                <div className="quantity">
+                  <button onClick={() => handleQuantityChange(item._id, item.quantity - 1)}>-</button>
                   <input
                     type="number"
                     min="1"
                     value={item.quantity}
                     onChange={(e) => handleQuantityChange(item._id, parseInt(e.target.value))}
-                    className="w-16 p-1 border rounded mr-4"
                   />
-                  <button
-                    onClick={() => handleRemoveItem(item._id)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <Trash2 size={20} />
-                  </button>
+                  <button onClick={() => handleQuantityChange(item._id, item.quantity + 1)}>+</button>
                 </div>
+                <button
+                  onClick={() => handleRemoveItem(item._id)}
+                  className="remove-btn"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
             ))}
           </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
-            <div className="flex justify-between mb-2">
+          <div className="order-summary">
+            <h2>Order Summary</h2>
+            <div className="summary-row">
               <span>Subtotal:</span>
               <span>${totalPrice.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between mb-2">
+            <div className="summary-row">
               <span>Shipping:</span>
               <span>$10.00</span>
             </div>
-            <div className="flex justify-between font-semibold text-lg border-t pt-2">
+            <div className="total">
               <span>Total:</span>
               <span>${(totalPrice + 10).toFixed(2)}</span>
             </div>
             <Link
               to="/checkout"
-              className="w-full bg-blue-600 text-white py-3 rounded mt-4 block text-center hover:bg-blue-700"
+              className="btn"
             >
               Proceed to Checkout
             </Link>

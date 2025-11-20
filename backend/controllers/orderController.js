@@ -1,16 +1,33 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const User = require('../models/User');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const { sendOrderConfirmationEmail, sendOrderStatusUpdateEmail } = require('../utils/emailService');
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+// Valid status transitions for admin
+const validStatusTransitions = {
+  'pending': ['confirmed', 'cancelled'],
+  'confirmed': ['shipped', 'cancelled'],
+  'shipped': ['out-for-delivery', 'cancelled'],
+  'out-for-delivery': ['delivered', 'cancelled'],
+  'delivered': [], // Final state
+  'cancelled': [] // Final state
+};
+
+// Function to validate status transition
+const isValidStatusTransition = (currentStatus, newStatus) => {
+  return validStatusTransitions[currentStatus]?.includes(newStatus) || false;
+};
+
 exports.createOrder = async (req, res) => {
   try {
-    const { orderItems, shippingAddress, paymentMethod, coupon } = req.body;
+    const { orderItems, shippingAddress, paymentMethod, coupon, subtotal, shippingCost, taxAmount } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({ message: 'No order items' });
@@ -37,9 +54,22 @@ exports.createOrder = async (req, res) => {
       paymentMethod,
       totalPrice,
       coupon,
+      subtotal,
+      shippingCost,
+      taxAmount,
     });
 
     const createdOrder = await order.save();
+
+    // Send order confirmation email
+    try {
+      const user = await User.findById(req.user.id);
+      await sendOrderConfirmationEmail(createdOrder, user);
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
+      // Don't fail the order creation if email fails
+    }
+
     res.status(201).json(createdOrder);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -79,11 +109,48 @@ exports.getAllOrders = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    const orderId = req.params.id;
+
+    // Get current order
+    const order = await Order.findById(orderId);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
-    res.json(order);
+
+    // Validate status transition
+    if (!isValidStatusTransition(order.status, status)) {
+      return res.status(400).json({
+        message: `Invalid status transition from ${order.status} to ${status}`,
+        validTransitions: validStatusTransitions[order.status]
+      });
+    }
+
+    // Prepare update object
+    const updateData = { status };
+
+    // If status is delivered, update delivery fields
+    if (status === 'delivered') {
+      updateData.isDelivered = true;
+      updateData.deliveredAt = new Date();
+    }
+
+    // Update order
+    const updatedOrder = await Order.findByIdAndUpdate(orderId, updateData, { new: true })
+      .populate('user', 'name email');
+
+    // Send order status update email
+    try {
+      await sendOrderStatusUpdateEmail(updatedOrder, updatedOrder.user, status);
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError);
+      // Don't fail the status update if email fails
+    }
+
+    res.json({
+      message: `Order status updated to ${status}`,
+      order: updatedOrder,
+      validNextStatuses: validStatusTransitions[status] || []
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -134,3 +201,27 @@ exports.verifyPayment = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+exports.getOrderStatusOptions = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const currentStatus = order.status;
+    const validNextStatuses = validStatusTransitions[currentStatus] || [];
+
+    res.json({
+      currentStatus,
+      validNextStatuses,
+      allStatuses: Object.keys(validStatusTransitions)
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Export validation functions for testing
+module.exports.validStatusTransitions = validStatusTransitions;
+module.exports.isValidStatusTransition = isValidStatusTransition;

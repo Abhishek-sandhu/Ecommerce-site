@@ -12,6 +12,7 @@ router.post('/payment/verify', auth, orderController.verifyPayment);
 
 // Admin routes
 router.get('/', auth, admin, orderController.getAllOrders);
+router.get('/:id/status-options', auth, admin, orderController.getOrderStatusOptions);
 router.put('/:id/status', auth, admin, orderController.updateOrderStatus);
 
 module.exports = router;

@@ -1,18 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../slices/authSlice';
-import { ShoppingCart, User, LogOut, Menu } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Menu, Search } from 'lucide-react';
 
 const Header = () => {
   const { user } = useSelector((state) => state.auth);
   const { cart } = useSelector((state) => state.cart);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleLogout = () => {
     dispatch(logout());
     navigate('/');
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+    }
   };
 
   const toggleMobileMenu = () => {
@@ -26,6 +35,23 @@ const Header = () => {
         <Link to="/" className="logo">
           E-Commerce
         </Link>
+
+        {/* Search Bar */}
+        <form onSubmit={handleSearch} className="search-bar">
+          <div className="search-input-container">
+            <input
+              type="text"
+              placeholder="Search for products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+            <button type="submit" className="search-btn">
+              <Search size={20} />
+            </button>
+          </div>
+        </form>
+
         <nav className="nav-links">
           <Link to="/products">Products</Link>
           {user ? (
@@ -60,6 +86,22 @@ const Header = () => {
         </div>
       </div>
       <div className="mobile-nav">
+        {/* Mobile Search */}
+        <form onSubmit={handleSearch} className="mobile-search">
+          <div className="search-input-container">
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+            <button type="submit" className="search-btn">
+              <Search size={20} />
+            </button>
+          </div>
+        </form>
+
         <nav className="nav-links">
           <Link to="/products" onClick={toggleMobileMenu}>Products</Link>
           {user ? (
